@@ -25,7 +25,7 @@ repo.create_git_ref(
     ref=f"refs/heads/{branch_name}", sha=repo.get_branch("master").commit.sha
 )
 
-count = 0
+created_files = []
 for entry in feed.entries:
     title = entry.get("title", "Untitled")
     date_ymd = isoparse(
@@ -55,7 +55,7 @@ for entry in feed.entries:
         continue
 
     logging.info(f"New post: {folder}")
-    count += 1
+    created_files.append(f"[{title}]({link})")
     meta = {
         "subsites": ["all"],
         "main_subsite": "global",
@@ -74,19 +74,16 @@ for entry in feed.entries:
         branch=branch_name,
     )
 
-pr_body = (
-    f"This PR imports new GTN posts.\n"
-    f"Date of post: {date_ymd}\n"
-    f"[{title}]({link})"
-)
 try:
     pr = repo.create_pull(
         title="Import GTN Posts",
-        body=pr_body,
+        body=f"This PR imports new GTN posts.\nNew posts:\n{"\n".join(created_files)}",
         head=branch_name,
         base="master",
     )
-    logging.info(f"Pull request created: {pr.html_url}\nTotal new posts: {count}")
+    logging.info(
+        f"Pull request created: {pr.html_url}\nTotal new posts: {len(created_files)}"
+    )
 except GithubException as e:
     repo.get_git_ref(f"heads/{branch_name}").delete()
     error_message = e.data.get("errors")[0].get("message")
