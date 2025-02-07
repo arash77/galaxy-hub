@@ -52,8 +52,9 @@ for entry in feed.entries:
             logging.info(f"PR already exists: {folder}, {file.blob_url}")
             pr_exists = True
             break
-    if pr_exists:
-        continue
+    # Testing!
+    # if pr_exists:
+    #     continue
 
     folder_path = os.path.join("content", "news", folder)
     if os.path.exists(folder_path):
