@@ -36,10 +36,9 @@ for entry in feed.entries:
     slug = os.path.splitext(os.path.basename(link))[0]
     folder = f"{date_ymd}-{slug}"
 
-    for existing_pr in existing_prs:
-        if folder in existing_pr.title:
-            logging.info(f"PR already exists for {title}: {existing_pr.html_url}")
-            continue
+    if any(folder in ex_pr.title for ex_pr in existing_prs):
+        logging.info(f"PR already exists for {title}")
+        continue
 
     folder_path = os.path.join("content", "news", folder)
     if os.path.exists(folder_path):
