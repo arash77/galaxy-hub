@@ -17,7 +17,7 @@ g = Github(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set"))
 repo = g.get_repo(os.getenv("REPO_NAME") or sys.exit("REPO_NAME not set"))
 default_branch = repo.default_branch
 existing_files = [
-    file
+    (pr.html_url, file.filename)
     for pr in repo.get_pulls(state="all", base=default_branch)
     for file in pr.get_files()
 ]
@@ -48,9 +48,9 @@ for entry in feed.entries:
     folder = f"{date_ymd}-{slug}"
 
     pr_exists = False
-    for file in existing_files:
-        if folder in file.filename:
-            logging.info(f"PR already exists: {folder}, {file.blob_url}")
+    for pr_url, file_path in existing_files:
+        if folder in file_path:
+            logging.info(f"PR already exists for {folder}: {pr_url}")
             pr_exists = True
             break
     # Testing!
