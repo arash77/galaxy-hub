@@ -21,7 +21,7 @@ for entry in feed.entries:
     title = entry.get("title", "Untitled")
     date_ymd = isoparse(
         entry.get("published") or entry.get("pubDate") or entry.get("updated")
-    ).date()
+    ).strftime("%Y-%m-%d")
 
     tags = {"training", "gtn-news"} | {
         tag["term"] for tag in entry.get("tags", []) if "term" in tag
@@ -72,7 +72,7 @@ for entry in feed.entries:
     )
     pr_body = (
         f"This PR imports new GTN posts.\n"
-        f"Update since {date_ymd}\n"
+        f"Date of post: {date_ymd}\n"
         f"[{title}]({link})"
     )
     pr = repo.create_pull(
