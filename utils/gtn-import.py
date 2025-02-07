@@ -15,9 +15,7 @@ feed = feedparser.parse(os.getenv("GTN_NEWS_FEED_URL"))
 g = Github(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set"))
 repo = g.get_repo(os.getenv("REPO_NAME") or sys.exit("REPO_NAME not set"))
 existing_files = [
-    file.filename
-    for pr in repo.get_pulls(state="all", base="master")
-    for file in pr.get_files()
+    file for pr in repo.get_pulls(state="all", base="master") for file in pr.get_files()
 ]
 
 branch_name = f"import-gtn-posts-{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -45,8 +43,13 @@ for entry in feed.entries:
     slug = os.path.splitext(os.path.basename(link))[0]
     folder = f"{date_ymd}-{slug}"
 
-    if any(folder in filename for filename in existing_files):
-        logging.info(f"PR already exists: {title}")
+    pr_exists = False
+    for file in existing_files:
+        if folder in file.filename:
+            logging.info(f"PR already exists: {folder}, {file.blob_url}")
+            pr_exists = True
+            break
+    if pr_exists:
         continue
 
     folder_path = os.path.join("content", "news", folder)
