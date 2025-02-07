@@ -14,13 +14,16 @@ feed = feedparser.parse(os.getenv("GTN_NEWS_FEED_URL"))
 
 g = Github(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set"))
 repo = g.get_repo(os.getenv("REPO_NAME") or sys.exit("REPO_NAME not set"))
+default_branch = repo.default_branch
 existing_files = [
-    file for pr in repo.get_pulls(state="all", base="master") for file in pr.get_files()
+    file
+    for pr in repo.get_pulls(state="all", base=default_branch)
+    for file in pr.get_files()
 ]
 
 branch_name = f"import-gtn-posts-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 repo.create_git_ref(
-    ref=f"refs/heads/{branch_name}", sha=repo.get_branch("master").commit.sha
+    ref=f"refs/heads/{branch_name}", sha=repo.get_branch(default_branch).commit.sha
 )
 
 created_files = []
@@ -82,7 +85,7 @@ try:
         title="Import GTN Posts",
         body=f"This PR imports new GTN posts.\nNew posts:\n{"\n".join(created_files)}",
         head=branch_name,
-        base="master",
+        base=default_branch,
     )
     logging.info(
         f"Pull request created: {pr.html_url}\nTotal new posts: {len(created_files)}"
