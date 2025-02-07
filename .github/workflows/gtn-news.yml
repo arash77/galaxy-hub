@@ -6,7 +6,7 @@ name: Galaxy Training Network news
 on:
   workflow_dispatch:
   schedule:
-    - cron: 0 3 * * *
+    - cron: '0 3 * * *'
 
 jobs:
   collect:
@@ -17,19 +17,19 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install feedparser.
-        run: pip install feedparser~=6.0 pyyaml
+      - name: Install dependencies
+        run: pip install feedparser pyyaml
 
-      - name: Parse GTN RSS feed.
+      - name: Parse GTN RSS feed
         id: gtn
-        run: python utils/gtn-import.py >> $GITHUB_OUTPUT
+        run: |
+          python utils/gtn-import.py >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
-        # If it's not a Pull Request then commit any changes as a new PR.
         if: |
           github.event_name != 'pull_request' &&
           steps.gtn.outputs != ''
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v7
         with:
           title: Import GTN Posts
           branch-suffix: timestamp
