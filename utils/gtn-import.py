@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 import sys
@@ -28,7 +29,7 @@ repo.create_git_ref(
 
 created_files = []
 for entry in feed.entries:
-    title = entry.get("title", "Untitled")
+    title = html.unescape(entry.get("title", "Untitled"))
     date_ymd = isoparse(
         entry.get("published") or entry.get("pubDate") or entry.get("updated")
     ).strftime("%Y-%m-%d")
@@ -41,7 +42,7 @@ for entry in feed.entries:
 
     authors = ", ".join(tag.get("name", "") for tag in entry.get("authors", []))
     link = entry.get("link", "")
-    summary = entry.get("summary", "")
+    summary = html.unescape(entry.get("summary", ""))
 
     slug = os.path.splitext(os.path.basename(link))[0]
     folder = f"{date_ymd}-{slug}"
@@ -68,12 +69,14 @@ for entry in feed.entries:
         "main_subsite": "global",
         "date": date_ymd,
         "tags": list(tags),
-        "title": title,
+        "title": str(title),
         "authors": authors,
         "external_url": link,
-        "tease": summary.split(". ")[0],
+        "tease": str(summary.split(". ")[0]),
     }
-    md_config = yaml.dump(meta, default_flow_style=False, sort_keys=False)
+    md_config = yaml.dump(
+        meta, default_flow_style=False, sort_keys=False, allow_unicode=True
+    )
     repo.create_file(
         path=os.path.join(folder_path, "index.md"),
         message=f"Add {title}",
