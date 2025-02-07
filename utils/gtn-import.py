@@ -33,13 +33,13 @@ for entry in feed.entries:
     link = entry.get("link", "")
     summary = entry.get("summary", "")
 
-    for existing_pr in existing_prs:
-        if link in existing_pr.title:
-            logging.info(f"PR already exists for {title}: {existing_pr.html_url}")
-            continue
-
     slug = os.path.splitext(os.path.basename(link))[0]
     folder = f"{date_ymd}-{slug}"
+
+    for existing_pr in existing_prs:
+        if folder in existing_pr.title:
+            logging.info(f"PR already exists for {title}: {existing_pr.html_url}")
+            continue
 
     folder_path = os.path.join("content", "news", folder)
     if os.path.exists(folder_path):
@@ -76,7 +76,7 @@ for entry in feed.entries:
         f"[{title}]({link})"
     )
     pr = repo.create_pull(
-        title=f"Import GTN Post {link}",
+        title=f"Import GTN Post {folder}",
         body=pr_body,
         head=branch_name,
         base="master",
