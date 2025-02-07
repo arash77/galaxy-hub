@@ -1,54 +1,86 @@
 import logging
 import os
+import sys
 from datetime import datetime
 
 import feedparser
 import yaml
+from dateutil.parser import isoparse
+from github import Github
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-FEED_URL = "https://training.galaxyproject.org/training-material/feed.xml"
-feed = feedparser.parse(FEED_URL)
+feed = feedparser.parse(os.getenv("GTN_NEWS_FEED_URL"))
+
+g = Github(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set"))
+repo = g.get_repo(os.getenv("REPO_NAME") or sys.exit("REPO_NAME not set"))
+existing_prs = repo.get_pulls(state="open", base="master")
 
 count = 0
 for entry in feed.entries:
-    try:
-        date_ymd = datetime.fromisoformat(entry.get("published")).strftime("%Y-%m-%d")
-    except Exception as e:
-        logging.error(
-            f"Could not parse date for entry '{entry.get('title', 'Untitled')}': {e}"
-        )
-        continue
-    tags = ["training", "gtn-news"]
-    if "tags" in entry:
-        tags += [tag.get("term", "") for tag in entry["tags"] if "term" in tag]
-    authors = ", ".join(tag.get("name", "") for tag in entry.get("authors", []))
+    title = entry.get("title", "Untitled")
+    date_ymd = isoparse(
+        entry.get("published") or entry.get("pubDate") or entry.get("updated")
+    ).date()
 
+    tags = {"training", "gtn-news"} | {
+        tag["term"] for tag in entry.get("tags", []) if "term" in tag
+    }
+    if "already-on-hub" in tags:
+        continue
+
+    authors = ", ".join(tag.get("name", "") for tag in entry.get("authors", []))
+    link = entry.get("link", "")
+    summary = entry.get("summary", "")
+
+    for existing_pr in existing_prs:
+        if link in existing_pr.title:
+            logging.info(f"PR already exists for {title}: {existing_pr.html_url}")
+            continue
+
+    slug = os.path.splitext(os.path.basename(link))[0]
+    folder = f"{date_ymd}-{slug}"
+
+    folder_path = os.path.join("content", "news", folder)
+    if os.path.exists(folder_path):
+        logging.info(f"Folder Already imported: {folder}")
+        continue
+
+    logging.info(f"New post: {folder}")
+    count += 1
     meta = {
         "subsites": ["all"],
         "main_subsite": "global",
         "date": date_ymd,
         "tags": tags,
-        "title": entry.get("title", "Untitled"),
+        "title": title,
         "authors": authors,
-        "external_url": entry.get("link", ""),
-        "tease": entry.get("summary", "").split(". ")[0],
+        "external_url": link,
+        "tease": summary.split(". ")[0],
     }
-    slug = entry.get("link", "").split("/")[-1].replace(".html", "")
-    folder = f"{date_ymd}-{slug}"
+    md_config = yaml.dump(meta, default_flow_style=False, sort_keys=False)
 
-    if "already-on-hub" in meta["tags"]:
-        continue
+    branch_name = f"import-gtn-posts-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    repo.create_git_ref(
+        ref=f"refs/heads/{branch_name}", sha=repo.get_branch("master").commit.sha
+    )
+    repo.create_file(
+        path=os.path.join(folder_path, "index.md"),
+        message=f"Add {title}",
+        content=f"---\n{md_config}---\n{summary}",
+        branch=branch_name,
+    )
+    pr_body = (
+        f"This PR imports new GTN posts.\n"
+        f"Update since {date_ymd}\n"
+        f"[{title}]({link})"
+    )
+    pr = repo.create_pull(
+        title=f"Import GTN Post {link}",
+        body=pr_body,
+        head=branch_name,
+        base="master",
+    )
+    logging.info(f"Pull request created: {pr.html_url}")
 
-    folder_path = os.path.join("content", "news", folder)
-    if not os.path.exists(folder_path):
-        logging.info(f"New post: {folder}")
-        count += 1
-        os.makedirs(folder_path, exist_ok=True)
-        index_path = os.path.join(folder_path, "index.md")
-        with open(index_path, "w", encoding="utf-8") as f:
-            f.write("---\n")
-            yaml.dump(meta, f, default_flow_style=False, sort_keys=False)
-            f.write("\n---\n")
-            f.write(entry.get("summary", ""))
-logging.info(f"count={count}")
+logging.info(f"Imported {count} new posts")
