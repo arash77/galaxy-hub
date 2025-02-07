@@ -31,7 +31,7 @@ jobs:
         env:
           GTN_NEWS_FEED_URL: https://training.galaxyproject.org/training-material/feed.xml
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+          REPO_NAME: ${{ github.repository }}
         run: python utils/gtn-import.py
 
   keepalive-job:
