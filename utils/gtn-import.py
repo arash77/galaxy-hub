@@ -6,7 +6,7 @@ from datetime import datetime
 import feedparser
 import yaml
 from dateutil.parser import isoparse
-from github import Github
+from github import Github, GithubException
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -14,7 +14,16 @@ feed = feedparser.parse(os.getenv("GTN_NEWS_FEED_URL"))
 
 g = Github(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set"))
 repo = g.get_repo(os.getenv("REPO_NAME") or sys.exit("REPO_NAME not set"))
-existing_prs = repo.get_pulls(state="open", base="master")
+existing_files = [
+    file.filename
+    for pr in repo.get_pulls(state="all", base="master")
+    for file in pr.get_files()
+]
+
+branch_name = f"import-gtn-posts-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+repo.create_git_ref(
+    ref=f"refs/heads/{branch_name}", sha=repo.get_branch("master").commit.sha
+)
 
 count = 0
 for entry in feed.entries:
@@ -36,13 +45,13 @@ for entry in feed.entries:
     slug = os.path.splitext(os.path.basename(link))[0]
     folder = f"{date_ymd}-{slug}"
 
-    if any(folder in ex_pr.title for ex_pr in existing_prs):
-        logging.info(f"PR already exists for {title}")
+    if any(folder in filename for filename in existing_files):
+        logging.info(f"PR already exists: {title}")
         continue
 
     folder_path = os.path.join("content", "news", folder)
     if os.path.exists(folder_path):
-        logging.info(f"Folder Already imported: {folder}")
+        logging.info(f"Folder Already exists: {folder}")
         continue
 
     logging.info(f"New post: {folder}")
@@ -51,35 +60,34 @@ for entry in feed.entries:
         "subsites": ["all"],
         "main_subsite": "global",
         "date": date_ymd,
-        "tags": tags,
+        "tags": list(tags),
         "title": title,
         "authors": authors,
         "external_url": link,
         "tease": summary.split(". ")[0],
     }
     md_config = yaml.dump(meta, default_flow_style=False, sort_keys=False)
-
-    branch_name = f"import-gtn-posts-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    repo.create_git_ref(
-        ref=f"refs/heads/{branch_name}", sha=repo.get_branch("master").commit.sha
-    )
     repo.create_file(
         path=os.path.join(folder_path, "index.md"),
         message=f"Add {title}",
         content=f"---\n{md_config}---\n{summary}",
         branch=branch_name,
     )
-    pr_body = (
-        f"This PR imports new GTN posts.\n"
-        f"Date of post: {date_ymd}\n"
-        f"[{title}]({link})"
-    )
+
+pr_body = (
+    f"This PR imports new GTN posts.\n"
+    f"Date of post: {date_ymd}\n"
+    f"[{title}]({link})"
+)
+try:
     pr = repo.create_pull(
-        title=f"Import GTN Post {folder}",
+        title="Import GTN Posts",
         body=pr_body,
         head=branch_name,
         base="master",
     )
-    logging.info(f"Pull request created: {pr.html_url}")
-
-logging.info(f"Imported {count} new posts")
+    logging.info(f"Pull request created: {pr.html_url}\nTotal new posts: {count}")
+except GithubException as e:
+    repo.get_git_ref(f"heads/{branch_name}").delete()
+    error_message = e.data.get("errors")[0].get("message")
+    print(f"Error in creating PR: {error_message}\nRemoving branch {branch_name}")
