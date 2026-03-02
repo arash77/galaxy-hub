@@ -9,13 +9,13 @@ import yaml
 from country_converter import CountryConverter
 from dateutil.parser import isoparse
 from geopy.geocoders import Nominatim
-from github import Github, GithubException
+from github import Auth, Github, GithubException
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 feed = feedparser.parse(os.getenv("FEED_URL"))
 
-g = Github(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set"))
+g = Github(auth=Auth.Token(os.getenv("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN not set")), lazy=True)
 repo = g.get_repo(os.getenv("REPO_NAME") or sys.exit("REPO_NAME not set"))
 default_branch = repo.default_branch
 
