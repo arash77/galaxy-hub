@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import {
   addBootstrapMarker,
   deriveNewsNaturalSlug,
+  isFutureDated,
+  processMarkdownFile,
+  destPathsForMarkdown,
   normalizeSlugSegment,
   normalizeSlug,
   inlineInserts,
@@ -197,6 +203,69 @@ describe('deriveNewsNaturalSlug', () => {
 
   it('passes through non-news paths', () => {
     expect(deriveNewsNaturalSlug('articles/example')).toBe('articles/example');
+  });
+});
+
+describe('isFutureDated', () => {
+  const now = new Date('2026-09-30T12:00:00Z');
+
+  it('returns true for a date after now', () => {
+    expect(isFutureDated('2026-10-02', now)).toBe(true);
+    expect(isFutureDated(new Date('2026-10-02'), now)).toBe(true);
+  });
+
+  it('returns false for today and past dates', () => {
+    expect(isFutureDated('2026-09-30', now)).toBe(false);
+    expect(isFutureDated('2026-09-29', now)).toBe(false);
+  });
+
+  it('returns false for missing or invalid dates', () => {
+    expect(isFutureDated(undefined, now)).toBe(false);
+    expect(isFutureDated(null, now)).toBe(false);
+    expect(isFutureDated('not-a-date', now)).toBe(false);
+  });
+});
+
+describe('processMarkdownFile future-dated content', () => {
+  let tmpDir;
+
+  const writeFixture = (relPath, date) => {
+    const filePath = path.join(tmpDir, relPath);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, `---\ntitle: Fixture\ndate: '${date}'\ntease: Fixture tease.\n---\nBody\n`);
+    return filePath;
+  };
+
+  const written = (filePath) => destPathsForMarkdown(filePath, tmpDir, tmpDir).some((p) => fs.existsSync(p));
+
+  beforeEach(() => {
+    insertCache.clear();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'preprocess-future-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('skips news dated in the future', async () => {
+    const filePath = writeFixture('news/2999/2999-01-01-future/index.md', '2999-01-01');
+    const result = await processMarkdownFile(filePath, { contentDir: tmpDir, outputDir: tmpDir });
+    expect(result).toBeNull();
+    expect(written(filePath)).toBe(false);
+  });
+
+  it('keeps news dated in the past', async () => {
+    const filePath = writeFixture('news/2025/2025-01-01-past/index.md', '2025-01-01');
+    const result = await processMarkdownFile(filePath, { contentDir: tmpDir, outputDir: tmpDir });
+    expect(result.collection).toBe('news');
+    expect(written(filePath)).toBe(true);
+  });
+
+  it('keeps future-dated events', async () => {
+    const filePath = writeFixture('events/2999-01-01-future/index.md', '2999-01-01');
+    const result = await processMarkdownFile(filePath, { contentDir: tmpDir, outputDir: tmpDir });
+    expect(result.collection).toBe('events');
+    expect(written(filePath)).toBe(true);
   });
 });
 

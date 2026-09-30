@@ -370,6 +370,16 @@ export function deriveNewsNaturalSlug(normalizedDirname) {
   return normalizedDirname === '.' ? 'home' : normalizedDirname;
 }
 
+/**
+ * Check if a frontmatter date is in the future.
+ * Missing or unparseable dates are not treated as future.
+ */
+export function isFutureDated(date, now = new Date()) {
+  if (!date) return false;
+  const d = date instanceof Date ? date : new Date(date);
+  return d > now;
+}
+
 // Cache for resolved insert content (inserts are referenced by multiple pages)
 const insertCache = new Map();
 
@@ -509,6 +519,13 @@ async function processMarkdownFile(filePath, { contentDir = CONTENT_DIR, outputD
   const collection = getContentCollection(filePath, contentDir);
   const relativePath = path.relative(contentDir, filePath);
   const dirname = path.dirname(relativePath);
+
+  // Hold back future-dated news until a build on or after its date, so no
+  // listing, feed, or search entry points at a page that isn't built yet.
+  if (collection === 'news' && isFutureDated(frontmatter.date)) {
+    console.log(`  Skipping future-dated news: ${relativePath}`);
+    return null;
+  }
 
   // Create slug from path
   let naturalSlug;
@@ -674,7 +691,7 @@ async function processBatch(items, processFn, batchSize = 50) {
 
     for (const result of batchResults) {
       if (result.status === 'fulfilled') {
-        results.push(result.value);
+        if (result.value) results.push(result.value);
         processed++;
       } else {
         errors++;
