@@ -1,0 +1,1 @@
+import{an as e,pn as t,xn as n}from"./runtime-core.esm-bundler.D0aRZkzc.js";function r(r){let i=n();if(typeof window<`u`){let n=r.subscribe(e=>{i.value=e});e()&&t(n)}else i.value=r.get();return i}export{r as t};

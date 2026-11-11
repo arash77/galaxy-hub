@@ -1,0 +1,1 @@
+export{t as autoCloseTags,n as html,r as htmlCompletionSource,i as htmlCompletionSourceWith,a as htmlLanguage}from"./dist.D-nRLWws.js";

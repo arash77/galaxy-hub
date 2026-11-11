@@ -1,0 +1,1 @@
+import{t as e}from"./prefetch.nQL6yw9T.js";e();

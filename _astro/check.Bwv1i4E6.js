@@ -1,0 +1,1 @@
+import{n as e}from"./chevron-down.BXRyzEgz.js";var t=e({name:`check`,size:24,node:[[`path`,{d:`M20 6 9 17l-5-5`,key:`1gmf2c`}]]});export{t};

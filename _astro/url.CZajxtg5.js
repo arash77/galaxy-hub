@@ -1,0 +1,1 @@
+var e=[`http:`,`https:`],t=[`http:`,`https:`,`mailto:`],n=`https://relative.invalid`;function r(t,n=e){if(typeof t==`string`&&URL.canParse(t))return n.includes(new URL(t).protocol)?t:void 0}function i(e,i=t){if(typeof e==`string`&&e.trim()){if(URL.canParse(e))return r(e,i);if(URL.canParse(e,n))return new URL(e,n).origin===n?e:void 0}}export{r as i,t as n,i as r,e as t};

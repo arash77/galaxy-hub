@@ -1,0 +1,1 @@
+import{t as e}from"./iframe.iUCIr523.js";e();
